@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>剪刀石頭布 🎮 挑戰電腦</title>
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Zen+Dots&family=Noto+Sans+TC:wght@400;700;900&display=swap');
+
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+    :root{
+      --bg:#0d0d0d;--surface:#161616;--border:rgba(255,255,255,0.08);
+      --accent:#ff3cac;--blue:#3cf0ff;--yellow:#ffe135;
+      --green:#39ff14;--red:#ff3c3c;--text:#f0f0f0;--muted:#666;
+    }
+
+    body{
+      font-family:'Noto Sans TC',sans-serif;
+      background:var(--bg);color:var(--text);
+      min-height:100vh;display:flex;align-items:center;
+      justify-content:center;padding:20px;overflow-x:hidden;
+    }
+
+    body::before{
+      content:'';position:fixed;inset:0;
+      background:
+        radial-gradient(ellipse 60% 40% at 20% 20%,rgba(255,60,172,0.08) 0%,transparent 60%),
+        radial-gradient(ellipse 50% 40% at 80% 80%,rgba(60,240,255,0.06) 0%,transparent 60%);
+      pointer-events:none;z-index:0;
+    }
+
+    .wrap{position:relative;z-index:1;width:min(420px,100%)}
+
+    .logo{
+      font-family:'Zen Dots',cursive;font-size:13px;letter-spacing:3px;
+      color:var(--muted);text-align:center;margin-bottom:24px;text-transform:uppercase;
+    }
+    .logo span{color:var(--accent)}
+
+    .scoreboard{
+      display:flex;align-items:center;justify-content:space-between;
+      background:var(--surface);border:1px solid var(--border);
+      border-radius:14px;padding:16px 24px;margin-bottom:20px;
+    }
+    .score-side{text-align:center}
+    .score-label{
+      font-size:10px;letter-spacing:2px;color:var(--muted);
+      text-transform:uppercase;margin-bottom:4px
+    }
+    .score-num{font-family:'Zen Dots',cursive;font-size:40px;line-height:1}
+    .score-num.pop{animation:scorePop .3s ease}
+    @keyframes scorePop{0%{transform:scale(1)}50%{transform:scale(1.4)}100%{transform:scale(1)}}
+    .score-you{color:var(--blue)}
+    .score-cpu{color:var(--accent)}
+    .vs-badge{font-family:'Zen Dots',cursive;font-size:11px;color:var(--muted);letter-spacing:2px}
+    .round-dots{display:flex;gap:6px;justify-content:center;margin-top:8px}
+    .dot{
+      width:8px;height:8px;border-radius:50%;background:var(--border);
+      border:1px solid rgba(255,255,255,0.12);transition:background .3s
+    }
+    .dot.win{background:var(--green)}
+    .dot.lose{background:var(--red)}
+    .dot.current{border-color:var(--yellow);animation:pulse 1s infinite}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+    .card{
+      background:var(--surface);border:1px solid var(--border);
+      border-radius:20px;padding:32px 28px;text-align:center
+    }
+
+    .round-tag{
+      display:inline-block;font-size:10px;letter-spacing:3px;text-transform:uppercase;
+      color:var(--muted);border:1px solid var(--border);border-radius:99px;
+      padding:4px 14px;margin-bottom:20px
+    }
+    .round-tag b{color:var(--yellow)}
+    .prompt{font-size:20px;font-weight:900;line-height:1.5;margin-bottom:28px}
+
+    .arena{
+      display:flex;align-items:center;justify-content:center;gap:16px;
+      margin-bottom:28px;min-height:100px
+    }
+    .hand-box{display:flex;flex-direction:column;align-items:center;gap:6px}
+    .hand{font-size:52px;line-height:1;filter:drop-shadow(0 0 12px rgba(255,255,255,0.1))}
+    .hand.you{transform:scaleX(-1)}
+    .hand-label{font-size:10px;letter-spacing:2px;color:var(--muted);text-transform:uppercase}
+    .vs-mid{font-family:'Zen Dots',cursive;font-size:16px;color:var(--border)}
+
+    .shaking{animation:shake .12s infinite}
+    @keyframes shake{0%,100%{transform:scaleX(-1) translateY(0)}50%{transform:scaleX(-1) translateY(-8px)}}
+    .shaking-r{animation:shakeR .12s infinite}
+    @keyframes shakeR{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+
+    .choices{display:flex;gap:12px;justify-content:center;margin-bottom:8px}
+    .choice-btn{
+      flex:1;background:rgba(255,255,255,0.03);border:1px solid var(--border);
+      border-radius:14px;padding:16px 8px;cursor:pointer;
+      transition:background .15s,border-color .15s,transform .1s;
+      display:flex;flex-direction:column;align-items:center;gap:6px
+    }
+    .choice-btn:hover{
+      background:rgba(255,255,255,0.07);
+      border-color:rgba(255,255,255,0.2);
+      transform:translateY(-2px)
+    }
+    .choice-btn:active{transform:scale(0.96)}
+    .choice-btn.disabled,
+    .choice-btn:disabled{pointer-events:none;opacity:.3}
+    .choice-icon{font-size:36px}
+    .choice-name{font-size:11px;letter-spacing:1px;color:var(--muted)}
+
+    .result-banner{
+      border-radius:10px;padding:14px 20px;margin-bottom:20px;
+      font-weight:900;font-size:18px;display:none
+    }
+    .result-win{background:rgba(57,255,20,0.12);border:1px solid rgba(57,255,20,0.3);color:var(--green)}
+    .result-lose{background:rgba(255,60,60,0.12);border:1px solid rgba(255,60,60,0.3);color:var(--red)}
+    .result-draw{background:rgba(255,225,53,0.1);border:1px solid rgba(255,225,53,0.2);color:var(--yellow)}
+    .result-desc{font-size:13px;font-weight:400;color:var(--muted);margin-top:4px}
+
+    .next-btn{
+      display:none;width:100%;padding:15px;
+      background:linear-gradient(135deg,var(--accent),#c0169a);
+      border:none;border-radius:12px;color:#fff;font-family:inherit;
+      font-size:16px;font-weight:700;cursor:pointer;letter-spacing:1px;margin-top:4px
+    }
+    .next-btn:hover{opacity:.9}
+
+    #gift-screen{display:none}
+    .gift-emoji{font-size:64px;margin-bottom:12px;display:block;animation:float 2s ease-in-out infinite}
+    @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+    .gift-title{font-size:22px;font-weight:900;color:var(--yellow);margin-bottom:8px}
+    .gift-sub{font-size:14px;color:var(--muted);line-height:1.8;margin-bottom:24px}
+    .gift-input{
+      width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.12);
+      border-radius:12px;padding:16px 18px;font-family:inherit;font-size:18px;
+      font-weight:700;color:var(--text);text-align:center;transition:border-color .2s;margin-bottom:16px
+    }
+    .gift-input:focus{outline:none;border-color:var(--yellow)}
+    .gift-input::placeholder{color:rgba(255,255,255,0.15);font-weight:400;font-size:14px}
+    .gift-btn{
+      width:100%;padding:16px;background:linear-gradient(135deg,var(--yellow),#f5a623);
+      border:none;border-radius:12px;color:#000;font-family:inherit;
+      font-size:16px;font-weight:900;cursor:pointer;transition:opacity .2s
+    }
+    .gift-btn:hover{opacity:.9}
+    .gift-btn:disabled{opacity:.5;cursor:not-allowed}
+
+    #done-screen{display:none}
+    .done-emoji{font-size:72px;display:block;margin-bottom:12px;animation:spin 1s ease}
+    @keyframes spin{from{transform:rotate(-20deg) scale(0.5)}to{transform:rotate(0deg) scale(1)}}
+    .done-title{font-size:24px;font-weight:900;color:var(--green);margin-bottom:10px}
+    .done-sub{font-size:14px;color:var(--muted);line-height:2}
+
+    .firework{position:fixed;pointer-events:none;z-index:999;font-size:24px;animation:fly 1s ease-out forwards}
+    @keyframes fly{0%{transform:translateY(0) scale(1);opacity:1}100%{transform:translateY(-120px) scale(0);opacity:0}}
+
+    .fade-in{animation:fadeUp .5s ease forwards}
+    @keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="logo"><span>✊</span> RPS Arena <span>✊</span></div>
+
+    <div class="scoreboard" id="scoreboard">
+      <div class="score-side">
+        <div class="score-label">你</div>
+        <div class="score-num score-you" id="score-you">0</div>
+      </div>
+      <div>
+        <div class="vs-badge">VS</div>
+        <div class="round-dots">
+          <div class="dot current" id="dot-0"></div>
+          <div class="dot" id="dot-1"></div>
+          <div class="dot" id="dot-2"></div>
+        </div>
+      </div>
+      <div class="score-side">
+        <div class="score-label">電腦</div>
+        <div class="score-num score-cpu" id="score-cpu">0</div>
+      </div>
+    </div>
+
+    <div class="card" id="game-screen">
+      <div class="round-tag">第 <b id="round-num">1</b> 局 / 共 3 局</div>
+      <div class="prompt">出你的拳，贏了有好處 😏</div>
+
+      <div class="arena">
+        <div class="hand-box">
+          <div class="hand you" id="hand-you">✊</div>
+          <div class="hand-label">你</div>
+        </div>
+        <div class="vs-mid">VS</div>
+        <div class="hand-box">
+          <div class="hand" id="hand-cpu">✊</div>
+          <div class="hand-label">電腦</div>
+        </div>
+      </div>
+
+      <div class="result-banner" id="result-banner">
+        <div id="result-text"></div>
+        <div class="result-desc" id="result-desc"></div>
+      </div>
+
+      <div class="choices">
+        <button class="choice-btn" onclick="play('rock')">
+          <span class="choice-icon">✊</span>
+          <span class="choice-name">石頭</span>
+        </button>
+        <button class="choice-btn" onclick="play('paper')">
+          <span class="choice-icon">✋</span>
+          <span class="choice-name">布</span>
+        </button>
+        <button class="choice-btn" onclick="play('scissors')">
+          <span class="choice-icon">✌️</span>
+          <span class="choice-name">剪刀</span>
+        </button>
+      </div>
+
+      <button class="next-btn" id="next-btn" onclick="nextRound()">下一局 →</button>
+    </div>
+
+    <div class="card fade-in" id="gift-screen">
+      <span class="gift-emoji">🏆</span>
+      <div class="gift-title">你贏了！！！</div>
+      <div class="gift-sub">
+        恭喜 2 勝 1 負完美奪冠！🎉<br>
+        你可以跟我要一個禮物 🎁<br>
+        <span style="color:var(--yellow);font-weight:700">輸入你想要什麼</span>
+      </div>
+
+      <input
+        class="gift-input"
+        id="gift-input"
+        type="text"
+        placeholder="e.g. iPhone、珍奶、AirPods…"
+        maxlength="30"
+      >
+
+      <button class="gift-btn" id="gift-btn" onclick="confirmGift()">🎁 我要這個！</button>
+    </div>
+
+    <div class="card fade-in" id="done-screen">
+      <span class="done-emoji">✅</span>
+      <div class="done-title">已送出！</div>
+      <div class="done-sub">
+        你的願望已記錄在案 📋<br>
+        靜待佳音吧！😇
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const EMAILJS_PUBLIC_KEY  = 'JFuNqXHH3AwRIqqzQ';
+    const EMAILJS_SERVICE_ID  = 'service_tks5gjw';
+    const EMAILJS_TEMPLATE_ID = 'template_kprjlao';
+    const TO_EMAIL            = 'a0900524027@gmail.com';
+
+    emailjs.init({
+      publicKey: EMAILJS_PUBLIC_KEY
+    });
+
+    const EMOJI = { rock:'✊', paper:'✋', scissors:'✌️' };
+    const BEATS = { rock:'scissors', scissors:'paper', paper:'rock' };
+    const NAME  = { rock:'石頭', paper:'布', scissors:'剪刀' };
+
+    let round = 0;
+    let scoreYou = 0;
+    let scoreCpu = 0;
+    let isPlaying = false;
+
+    function getCpuMove(playerMove) {
+      if (round === 0) return BEATS[playerMove];
+      if (round === 1) {
+        for (const [k, v] of Object.entries(BEATS)) {
+          if (v === playerMove) return k;
+        }
+      }
+      if (round === 2) return BEATS[playerMove];
+      return 'rock';
+    }
+
+    function setChoiceDisabled(disabled) {
+      document.querySelectorAll('.choice-btn').forEach(btn => {
+        btn.disabled = disabled;
+        btn.classList.toggle('disabled', disabled);
+      });
+    }
+
+    function play(playerMove) {
+      if (isPlaying) return;
+      isPlaying = true;
+      setChoiceDisabled(true);
+
+      const cpuMove = getCpuMove(playerMove);
+      const hY = document.getElementById('hand-you');
+      const hC = document.getElementById('hand-cpu');
+
+      hY.textContent = '✊';
+      hC.textContent = '✊';
+      hY.className = 'hand you shaking';
+      hC.className = 'hand shaking-r';
+
+      let c = 0;
+      const emojis = ['✊','✋','✌️'];
+
+      const iv = setInterval(() => {
+        c++;
+        hY.textContent = emojis[c % 3];
+        hC.textContent = emojis[(c + 1) % 3];
+
+        if (c >= 6) {
+          clearInterval(iv);
+          hY.className = 'hand you';
+          hC.className = 'hand';
+          revealResult(playerMove, cpuMove);
+        }
+      }, 120);
+    }
+
+    function revealResult(playerMove, cpuMove) {
+      document.getElementById('hand-you').textContent = EMOJI[playerMove];
+      document.getElementById('hand-cpu').textContent = EMOJI[cpuMove];
+
+      const banner = document.getElementById('result-banner');
+      banner.style.display = 'block';
+      banner.className = 'result-banner';
+
+      const outcome =
+        playerMove === cpuMove ? 'draw' :
+        BEATS[playerMove] === cpuMove ? 'win' : 'lose';
+
+      if (outcome === 'draw') {
+        banner.classList.add('result-draw');
+        document.getElementById('result-text').textContent = '🤝 平手！';
+        document.getElementById('result-desc').textContent = '這局不算，重來！';
+
+        setTimeout(() => {
+          banner.style.display = 'none';
+          isPlaying = false;
+          setChoiceDisabled(false);
+        }, 900);
+        return;
+      }
+
+      if (outcome === 'win') {
+        banner.classList.add('result-win');
+        document.getElementById('result-text').textContent = '🎉 這局你贏！';
+        document.getElementById('result-desc').textContent = `${NAME[playerMove]} 打敗 ${NAME[cpuMove]}`;
+        scoreYou++;
+        updateScore('you');
+        updateDot(round, 'win');
+        spawnFireworks();
+      } else {
+        banner.classList.add('result-lose');
+        document.getElementById('result-text').textContent = '😢 這局輸了…';
+        document.getElementById('result-desc').textContent = `${NAME[cpuMove]} 打敗 ${NAME[playerMove]}`;
+        scoreCpu++;
+        updateScore('cpu');
+        updateDot(round, 'lose');
+      }
+
+      const nextBtn = document.getElementById('next-btn');
+      nextBtn.style.display = 'block';
+      nextBtn.textContent = round < 2 ? '下一局 →' : '查看結果 🏆';
+
+      isPlaying = false;
+    }
+
+    function updateScore(side) {
+      const el = document.getElementById('score-' + side);
+      el.textContent = side === 'you' ? scoreYou : scoreCpu;
+      el.classList.remove('pop');
+      void el.offsetWidth;
+      el.classList.add('pop');
+    }
+
+    function updateDot(idx, state) {
+      const d = document.getElementById('dot-' + idx);
+      d.classList.remove('current');
+      d.classList.add(state);
+    }
+
+    function nextRound() {
+      if (isPlaying) return;
+
+      round++;
+
+      if (round > 2) {
+        document.getElementById('scoreboard').style.display = 'none';
+        document.getElementById('game-screen').style.display = 'none';
+        document.getElementById('gift-screen').style.display = 'block';
+        return;
+      }
+
+      document.getElementById('round-num').textContent = round + 1;
+      document.getElementById('result-banner').style.display = 'none';
+      document.getElementById('next-btn').style.display = 'none';
+      document.getElementById('hand-you').textContent = '✊';
+      document.getElementById('hand-cpu').textContent = '✊';
+      setChoiceDisabled(false);
+
+      const d = document.getElementById('dot-' + round);
+      if (d) d.classList.add('current');
+    }
+
+    async function confirmGift() {
+      const input = document.getElementById('gift-input');
+      const value = input.value.trim();
+
+      if (!value) {
+        input.style.borderColor = 'var(--accent)';
+        input.placeholder = '先輸入你要什麼啦！';
+        input.focus();
+        return;
+      }
+
+      const btn = document.getElementById('gift-btn');
+      btn.disabled = true;
+      btn.textContent = '傳送中…';
+
+      try {
+        await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
+          to_email: TO_EMAIL,
+          gift: value,
+          message: `我是乞丐，我要 ${value}`,
+          time: new Date().toLocaleString('zh-TW')
+        });
+
+        spawnFireworks();
+        document.getElementById('gift-screen').style.display = 'none';
+        document.getElementById('done-screen').style.display = 'block';
+      } catch (error) {
+        console.error('EmailJS 發送失敗:', error);
+        btn.disabled = false;
+        btn.textContent = '🎁 我要這個！';
+        alert('送出失敗，請檢查 EmailJS 模板設定是否正確。');
+      }
+    }
+
+    document.getElementById('gift-input').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') confirmGift();
+    });
+
+    function spawnFireworks() {
+      const icons = ['🎊','✨','🎉','⭐','💥','🌟'];
+
+      for (let i = 0; i < 10; i++) {
+        setTimeout(() => {
+          const fw = document.createElement('div');
+          fw.className = 'firework';
+          fw.textContent = icons[Math.floor(Math.random() * icons.length)];
+          fw.style.left = Math.random() * window.innerWidth + 'px';
+          fw.style.top  = (window.innerHeight * 0.2 + Math.random() * window.innerHeight * 0.5) + 'px';
+          document.body.appendChild(fw);
+          setTimeout(() => fw.remove(), 1000);
+        }, i * 80);
+      }
+    }
+  </script>
+</body>
+</html>
